@@ -5,7 +5,7 @@ import (
 	"os"
 	"os/user"
 
-	"../repl"
+	"playground/go-interpreter/src/repl"
 )
 
 func main() {
