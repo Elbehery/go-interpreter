@@ -31,7 +31,6 @@ func (p *Program) TokenLiteral() string {
 		return ""
 	}
 }
-
 func (p *Program) String() string {
 	var buf bytes.Buffer
 
@@ -51,9 +50,7 @@ type LetStatement struct {
 func (l *LetStatement) TokenLiteral() string {
 	return l.Token.Literal
 }
-
 func (l *LetStatement) statementNode() {}
-
 func (l *LetStatement) String() string {
 	var buf bytes.Buffer
 
@@ -77,11 +74,22 @@ type Identifier struct {
 func (i *Identifier) TokenLiteral() string {
 	return i.Token.Literal
 }
-
 func (i *Identifier) expressionNode() {}
-
 func (i *Identifier) String() string {
 	return i.Value
+}
+
+type IntegerLiteral struct {
+	Token token.Token
+	Value int64
+}
+
+func (il *IntegerLiteral) expressionNode() {}
+func (il *IntegerLiteral) TokenLiteral() string {
+	return il.Token.Literal
+}
+func (il *IntegerLiteral) String() string {
+	return il.TokenLiteral()
 }
 
 type ReturnStatement struct {
@@ -90,11 +98,9 @@ type ReturnStatement struct {
 }
 
 func (rs *ReturnStatement) statementNode() {}
-
 func (rs *ReturnStatement) TokenLiteral() string {
 	return rs.Token.Literal
 }
-
 func (rs *ReturnStatement) String() string {
 	var buf bytes.Buffer
 
@@ -115,9 +121,28 @@ type ExpressionStatement struct {
 func (es *ExpressionStatement) TokenLiteral() string {
 	return es.Token.Literal
 }
-
 func (es *ExpressionStatement) statementNode() {}
-
 func (es *ExpressionStatement) String() string {
 	return es.Expression.String()
+}
+
+type PrefixExpression struct {
+	Token    token.Token
+	Operator string
+	Right    Expression
+}
+
+func (pe *PrefixExpression) TokenLiteral() string {
+	return pe.Token.Literal
+}
+func (pe *PrefixExpression) expressionNode() {}
+func (pe *PrefixExpression) String() string {
+	var buf bytes.Buffer
+
+	buf.WriteString("(")
+	buf.WriteString(pe.Operator)
+	buf.WriteString(pe.Right.String())
+	buf.WriteString(")")
+
+	return buf.String()
 }
