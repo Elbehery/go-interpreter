@@ -1,9 +1,13 @@
 package ast
 
-import "playground/go-interpreter/src/token"
+import (
+	"bytes"
+	"playground/go-interpreter/src/token"
+)
 
 type Node interface {
 	TokenLiteral() string
+	String() string
 }
 
 type Statement interface {
@@ -28,6 +32,16 @@ func (p *Program) TokenLiteral() string {
 	}
 }
 
+func (p *Program) String() string {
+	var buf bytes.Buffer
+
+	for _, stmt := range p.Statements {
+		buf.WriteString(stmt.String())
+	}
+
+	return buf.String()
+}
+
 type LetStatement struct {
 	Token token.Token
 	Name  *Identifier
@@ -40,6 +54,21 @@ func (l *LetStatement) TokenLiteral() string {
 
 func (l *LetStatement) statementNode() {}
 
+func (l *LetStatement) String() string {
+	var buf bytes.Buffer
+
+	buf.WriteString(l.Token.Literal + " ")
+	buf.WriteString(l.Name.String())
+	buf.WriteString(" = ")
+
+	if l.Value != nil {
+		buf.WriteString(l.Value.String())
+	}
+
+	buf.WriteString(";")
+	return buf.String()
+}
+
 type Identifier struct {
 	Token token.Token
 	Value string
@@ -50,3 +79,45 @@ func (i *Identifier) TokenLiteral() string {
 }
 
 func (i *Identifier) expressionNode() {}
+
+func (i *Identifier) String() string {
+	return i.Value
+}
+
+type ReturnStatement struct {
+	Token       token.Token
+	ReturnValue Expression
+}
+
+func (rs *ReturnStatement) statementNode() {}
+
+func (rs *ReturnStatement) TokenLiteral() string {
+	return rs.Token.Literal
+}
+
+func (rs *ReturnStatement) String() string {
+	var buf bytes.Buffer
+
+	buf.WriteString(rs.Token.Literal + " ")
+	if rs.ReturnValue != nil {
+		buf.WriteString(rs.ReturnValue.String())
+	}
+
+	buf.WriteString(";")
+	return buf.String()
+}
+
+type ExpressionStatement struct {
+	Token      token.Token
+	Expression Expression
+}
+
+func (es *ExpressionStatement) TokenLiteral() string {
+	return es.Token.Literal
+}
+
+func (es *ExpressionStatement) statementNode() {}
+
+func (es *ExpressionStatement) String() string {
+	return es.Expression.String()
+}
