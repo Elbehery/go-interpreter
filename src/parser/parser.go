@@ -167,11 +167,11 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 func (p *Parser) parseFunctionLiteral() ast.Expression {
 	fl := &ast.FunctionLiteral{Token: p.curToken}
 
-	if !p.peekTokenIs(token.LPAREN) {
+	if !p.expectPeek(token.LPAREN) {
 		return nil
 	}
 	fl.Parameters = p.parseFunctionParameters()
-	if !p.peekTokenIs(token.LBRACE) {
+	if !p.expectPeek(token.LBRACE) {
 		return nil
 	}
 	fl.Body = p.parseBlockStatement()
@@ -181,7 +181,7 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 	idens := make([]*ast.Identifier, 0)
 
-	if p.peekTokenIs(token.COMMA) {
+	if p.peekTokenIs(token.RPAREN) {
 		p.nextToken()
 		return idens
 	}
