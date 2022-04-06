@@ -29,6 +29,8 @@ func Start(in io.Reader, out io.Writer) {
 }
 
 func printParseErrors(out io.Writer, errs []string) {
+	io.WriteString(out, "Woops! We ran into some monkey business here!\n")
+	io.WriteString(out, " parser errors:\n")
 	for _, e := range errs {
 		io.WriteString(out, "\t"+e+"\n")
 	}
