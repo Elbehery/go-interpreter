@@ -57,6 +57,23 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		env.Set(node.Name.Value, val)
 	case *ast.Identifier:
 		evalIdentifier(node, env)
+	case *ast.FunctionLiteral:
+		params := node.Parameters
+		body := node.Body
+		return &object.Function{
+			Parameters: params,
+			Body:       body,
+			Env:        env,
+		}
+	case *ast.CallExpression:
+		fn := Eval(node.Function, env)
+		if isError(fn) {
+			return fn
+		}
+		args := evalExpressions(node.Arguments, env)
+		if len(args) == 1 && isError(args[0]) {
+			return args[0]
+		}
 	}
 	return nil
 }
@@ -219,4 +236,17 @@ func isError(obj object.Object) bool {
 		return obj.Type() == object.ERROR_OBJ
 	}
 	return false
+}
+
+func evalExpressions(exps []ast.Expression, env *object.Environment) []object.Object {
+	var result []object.Object
+
+	for _, exp := range exps {
+		evaluated := Eval(exp, env)
+		if isError(evaluated) {
+			return []object.Object{evaluated}
+		}
+		result = append(result, evaluated)
+	}
+	return result
 }

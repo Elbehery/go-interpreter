@@ -1,6 +1,11 @@
 package object
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+	"playground/go-interpreter/src/ast"
+	"strings"
+)
 
 type ObjectType string
 
@@ -10,6 +15,7 @@ const (
 	NULL_OBJ         = "NULL"
 	RETURN_VALUE_OBJ = "RETURN_VALUE"
 	ERROR_OBJ        = "ERROR"
+	FUNCTION_OBJ     = "FUNCTION"
 )
 
 type Object interface {
@@ -70,19 +76,29 @@ func (e *Error) Inspect() string {
 	return "Error: " + e.Message
 }
 
-type Environment struct {
-	store map[string]Object
+type Function struct {
+	Parameters []*ast.Identifier
+	Body       *ast.BlockStatement
+	Env        *Environment
 }
 
-func NewEnvironment() *Environment {
-	s := make(map[string]Object)
-	return &Environment{store: s}
+func (f *Function) Type() ObjectType {
+	return FUNCTION_OBJ
 }
-func (e *Environment) Get(name string) (Object, bool) {
-	obj, ok := e.store[name]
-	return obj, ok
-}
-func (e *Environment) Set(name string, obj Object) Object {
-	e.store[name] = obj
-	return obj
+func (f *Function) Inspect() string {
+	var buf bytes.Buffer
+
+	params := []string{}
+	for _, p := range f.Parameters {
+		params = append(params, p.String())
+	}
+
+	buf.WriteString("fn")
+	buf.WriteString("(")
+	buf.WriteString(strings.Join(params, ", "))
+	buf.WriteString("{\n")
+	buf.WriteString(f.Body.String())
+	buf.WriteString("\n}")
+
+	return buf.String()
 }
