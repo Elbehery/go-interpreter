@@ -5,11 +5,13 @@ import (
 	"io"
 	"playground/go-interpreter/src/evaluator"
 	"playground/go-interpreter/src/lexer"
+	"playground/go-interpreter/src/object"
 	"playground/go-interpreter/src/parser"
 )
 
 func Start(in io.Reader, out io.Writer) {
 	scanner := bufio.NewScanner(in)
+	env := object.NewEnvironment()
 
 	for {
 		scanned := scanner.Scan()
@@ -25,7 +27,7 @@ func Start(in io.Reader, out io.Writer) {
 			continue
 		}
 
-		evaluated := evaluator.Eval(program)
+		evaluated := evaluator.Eval(program, env)
 		if evaluated != nil {
 			io.WriteString(out, evaluated.Inspect())
 			io.WriteString(out, "\n")
