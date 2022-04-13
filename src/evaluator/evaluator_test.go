@@ -380,6 +380,59 @@ func TestArrayLiterals(t *testing.T) {
 	testIntegerObject(t, obj.Elements[2], 6)
 }
 
+func TestArrayIndexExpression(t *testing.T) {
+	testCases := []struct {
+		input    string
+		expected interface{}
+	}{
+		{
+			"[1, 2, 3][0]",
+			1},
+		{
+			"[1, 2, 3][1]",
+			2},
+		{
+			"[1, 2, 3][2]",
+			3,
+		},
+		{"let i = 0; [1][i];",
+			1},
+		{
+			"[1, 2, 3][1 + 1];",
+			3,
+		},
+		{
+			"let myArray = [1, 2, 3]; myArray[2];",
+			3,
+		},
+		{
+			"let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];",
+			6,
+		},
+		{
+			"let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i]",
+			2,
+		},
+		{
+			"[1, 2, 3][3]",
+			nil},
+		{
+			"[1, 2, 3][-1]",
+			nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		eval := testEval(tc.input)
+		integer, ok := tc.expected.(int64)
+		if ok {
+			testIntegerObject(t, eval, integer)
+		} else {
+			testNullObject(t, eval)
+		}
+	}
+}
+
 func testEval(input string) object.Object {
 	l := lexer.New(input)
 	p := parser.New(l)
