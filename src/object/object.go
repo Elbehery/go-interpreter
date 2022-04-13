@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"playground/go-interpreter/src/ast"
 	"strings"
+
+	"hash/fnv"
 )
 
 type ObjectType string
@@ -19,6 +21,7 @@ const (
 	STRING_OBJ       = "STRING"
 	BUILTIN_OBJ      = "BUILTIN"
 	ARRAY_OBJ        = "ARRAY"
+	HASH_OBJ         = "HASH"
 )
 
 type BuiltinFunction func(args ...Object) Object
@@ -150,4 +153,69 @@ func (a *Array) Inspect() string {
 	buf.WriteString("]")
 
 	return buf.String()
+}
+
+type HashKey struct {
+	Type  ObjectType
+	Value uint64
+}
+
+func (b *Boolean) HashKey() HashKey {
+	var val uint64
+
+	if b.Value {
+		val = 1
+	} else {
+		val = 0
+	}
+	return HashKey{
+		Type:  b.Type(),
+		Value: val,
+	}
+}
+
+func (i *Integer) HashKey() HashKey {
+	return HashKey{
+		Type:  i.Type(),
+		Value: uint64(i.Value),
+	}
+}
+
+func (s *String) HashKey() HashKey {
+	h := fnv.New64a()
+	h.Write([]byte(s.Value))
+	return HashKey{
+		Type:  s.Type(),
+		Value: h.Sum64(),
+	}
+}
+
+type HashPair struct {
+	Key   Object
+	Value Object
+}
+
+type Hash struct {
+	Pairs map[HashKey]HashPair
+}
+
+func (h *Hash) Type() ObjectType {
+	return HASH_OBJ
+}
+func (h *Hash) Inspect() string {
+	var buf bytes.Buffer
+
+	pairs := []string{}
+	for _, pair := range h.Pairs {
+		pairs = append(pairs, fmt.Sprintf("%s: %s", pair.Key.Inspect(), pair.Value.Inspect()))
+	}
+	buf.WriteString("{")
+	buf.WriteString(strings.Join(pairs, ", "))
+	buf.WriteString("}")
+
+	return buf.String()
+}
+
+type Hashable interface {
+	HashKey() HashKey
 }
