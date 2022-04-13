@@ -5,6 +5,12 @@ type Environment struct {
 	outer *Environment
 }
 
+func NewEnclosedEnvironment(out *Environment) *Environment {
+	env := NewEnvironment()
+	env.outer = out
+	return env
+}
+
 func NewEnvironment() *Environment {
 	s := make(map[string]Object)
 	return &Environment{store: s, outer: nil}
