@@ -12,91 +12,6 @@ var (
 	FALSE = &object.Boolean{Value: false}
 )
 
-var builtins = map[string]*object.Builtin{
-	"len": &object.Builtin{
-		Fn: func(args ...object.Object) object.Object {
-			if len(args) != 1 {
-				return newError("wrong number of arguments. got=%d, want=1", len(args))
-			}
-			switch arg := args[0].(type) {
-			case *object.Array:
-				return &object.Integer{Value: int64(len(arg.Elements))}
-			case *object.String:
-				return &object.Integer{Value: int64(len(arg.Value))}
-			default:
-				return newError("argument to `len` not supported, got %s", args[0].Type())
-			}
-		},
-	},
-	"first": &object.Builtin{
-		Fn: func(args ...object.Object) object.Object {
-			if len(args) != 1 {
-				return newError("wrong number of arguments. got=%d, want=1", len(args))
-			}
-			if args[0].Type() != object.ARRAY_OBJ {
-				return newError("argument to `first` must be ARRAY, got %s", args[0].Type())
-			}
-			arr := args[0].(*object.Array)
-			if len(arr.Elements) > 0 {
-				return arr.Elements[0]
-			}
-			return NULL
-		},
-	},
-	"last": &object.Builtin{
-		Fn: func(args ...object.Object) object.Object {
-			if len(args) != 1 {
-				return newError("wrong number of arguments. got=%d, want=1", len(args))
-			}
-			if args[0].Type() != object.ARRAY_OBJ {
-				return newError("argument to `first` must be ARRAY, got %s", args[0].Type())
-			}
-			arr := args[0].(*object.Array)
-			if len(arr.Elements) > 0 {
-				return arr.Elements[len(arr.Elements)-1]
-			}
-			return NULL
-		},
-	},
-	"rest": &object.Builtin{
-		Fn: func(args ...object.Object) object.Object {
-			if len(args) != 1 {
-				return newError("wrong number of arguments. got=%d, want=1", len(args))
-			}
-			if args[0].Type() != object.ARRAY_OBJ {
-				return newError("argument to `first` must be ARRAY, got %s", args[0].Type())
-			}
-			arr := args[0].(*object.Array)
-			length := len(arr.Elements)
-			if length > 0 {
-				newElements := make([]object.Object, length-1, length-1)
-				copy(newElements, arr.Elements[1:length])
-				return &object.Array{Elements: newElements}
-			}
-			return NULL
-		},
-	},
-	"push": &object.Builtin{
-		Fn: func(args ...object.Object) object.Object {
-			if len(args) != 2 {
-				return newError("wrong number of arguments. got=%d, want=1", len(args))
-			}
-			if args[0].Type() != object.ARRAY_OBJ {
-				return newError("argument to `first` must be ARRAY, got %s", args[0].Type())
-			}
-			arr := args[0].(*object.Array)
-			length := len(arr.Elements)
-			if length > 0 {
-				newElements := make([]object.Object, length+1, length+1)
-				copy(newElements, arr.Elements)
-				newElements[length] = args[1]
-				return &object.Array{Elements: newElements}
-			}
-			return NULL
-		},
-	},
-}
-
 func Eval(node ast.Node, env *object.Environment) object.Object {
 	switch node := node.(type) {
 
@@ -127,6 +42,9 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 	// Expressions
 	case *ast.IntegerLiteral:
 		return &object.Integer{Value: node.Value}
+
+	case *ast.StringLiteral:
+		return &object.String{Value: node.Value}
 
 	case *ast.Boolean:
 		return nativeBoolToBooleanObject(node.Value)
@@ -174,14 +92,14 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		}
 
 		return applyFunction(function, args)
-	case *ast.StringLiteral:
-		return &object.String{Value: node.Value}
+
 	case *ast.ArrayLiteral:
 		elements := evalExpressions(node.Elements, env)
 		if len(elements) == 1 && isError(elements[0]) {
 			return elements[0]
 		}
 		return &object.Array{Elements: elements}
+
 	case *ast.IndexExpression:
 		left := Eval(node.Left, env)
 		if isError(left) {
@@ -191,30 +109,14 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		if isError(index) {
 			return index
 		}
-		evalIndexExpression(left, index)
+		return evalIndexExpression(left, index)
+
+	case *ast.HashLiteral:
+		return evalHashLiteral(node, env)
+
 	}
 
 	return nil
-}
-
-func evalIndexExpression(left, index object.Object) object.Object {
-	switch {
-	case left.Type() == object.ARRAY_OBJ && index.Type() == object.INTEGER_OBJ:
-		return evalArrayIndexExpression(left, index)
-	default:
-		return newError("index operator not supported: %s", left.Type())
-	}
-}
-
-func evalArrayIndexExpression(array, index object.Object) object.Object {
-	arr := array.(*object.Array)
-	idx := index.(*object.Integer).Value
-	max := int64(len(arr.Elements) - 1)
-
-	if idx < 0 || idx > max {
-		return NULL
-	}
-	return arr.Elements[idx]
 }
 
 func evalProgram(program *ast.Program, env *object.Environment) object.Object {
@@ -279,6 +181,8 @@ func evalInfixExpression(
 	switch {
 	case left.Type() == object.INTEGER_OBJ && right.Type() == object.INTEGER_OBJ:
 		return evalIntegerInfixExpression(operator, left, right)
+	case left.Type() == object.STRING_OBJ && right.Type() == object.STRING_OBJ:
+		return evalStringInfixExpression(operator, left, right)
 	case operator == "==":
 		return nativeBoolToBooleanObject(left == right)
 	case operator == "!=":
@@ -286,22 +190,10 @@ func evalInfixExpression(
 	case left.Type() != right.Type():
 		return newError("type mismatch: %s %s %s",
 			left.Type(), operator, right.Type())
-	case left.Type() == object.STRING_OBJ && right.Type() == object.STRING_OBJ:
-		return evalStringInfixExpression(operator, left, right)
 	default:
 		return newError("unknown operator: %s %s %s",
 			left.Type(), operator, right.Type())
 	}
-}
-
-func evalStringInfixExpression(op string, left, right object.Object) object.Object {
-	if op != "+" {
-		return newError("unknown operator: %s %s %s", left.Type(), op, right.Type())
-	}
-
-	lVal := left.(*object.String)
-	rVal := right.(*object.String)
-	return &object.String{Value: lVal.Value + rVal.Value}
 }
 
 func evalBangOperatorExpression(right object.Object) object.Object {
@@ -356,6 +248,20 @@ func evalIntegerInfixExpression(
 	}
 }
 
+func evalStringInfixExpression(
+	operator string,
+	left, right object.Object,
+) object.Object {
+	if operator != "+" {
+		return newError("unknown operator: %s %s %s",
+			left.Type(), operator, right.Type())
+	}
+
+	leftVal := left.(*object.String).Value
+	rightVal := right.(*object.String).Value
+	return &object.String{Value: leftVal + rightVal}
+}
+
 func evalIfExpression(
 	ie *ast.IfExpression,
 	env *object.Environment,
@@ -378,13 +284,11 @@ func evalIdentifier(
 	node *ast.Identifier,
 	env *object.Environment,
 ) object.Object {
-	val, ok := env.Get(node.Value)
-	if ok {
+	if val, ok := env.Get(node.Value); ok {
 		return val
 	}
 
-	builtin, ok := builtins[node.Value]
-	if ok {
+	if builtin, ok := builtins[node.Value]; ok {
 		return builtin
 	}
 
@@ -433,14 +337,16 @@ func evalExpressions(
 }
 
 func applyFunction(fn object.Object, args []object.Object) object.Object {
-
 	switch fn := fn.(type) {
+
 	case *object.Function:
 		extendedEnv := extendFunctionEnv(fn, args)
 		evaluated := Eval(fn.Body, extendedEnv)
 		return unwrapReturnValue(evaluated)
+
 	case *object.Builtin:
 		return fn.Fn(args...)
+
 	default:
 		return newError("not a function: %s", fn.Type())
 	}
@@ -465,4 +371,72 @@ func unwrapReturnValue(obj object.Object) object.Object {
 	}
 
 	return obj
+}
+
+func evalIndexExpression(left, index object.Object) object.Object {
+	switch {
+	case left.Type() == object.ARRAY_OBJ && index.Type() == object.INTEGER_OBJ:
+		return evalArrayIndexExpression(left, index)
+	case left.Type() == object.HASH_OBJ:
+		return evalHashIndexExpression(left, index)
+	default:
+		return newError("index operator not supported: %s", left.Type())
+	}
+}
+
+func evalArrayIndexExpression(array, index object.Object) object.Object {
+	arrayObject := array.(*object.Array)
+	idx := index.(*object.Integer).Value
+	max := int64(len(arrayObject.Elements) - 1)
+
+	if idx < 0 || idx > max {
+		return NULL
+	}
+
+	return arrayObject.Elements[idx]
+}
+
+func evalHashLiteral(
+	node *ast.HashLiteral,
+	env *object.Environment,
+) object.Object {
+	pairs := make(map[object.HashKey]object.HashPair)
+
+	for keyNode, valueNode := range node.Pairs {
+		key := Eval(keyNode, env)
+		if isError(key) {
+			return key
+		}
+
+		hashKey, ok := key.(object.Hashable)
+		if !ok {
+			return newError("unusable as hash key: %s", key.Type())
+		}
+
+		value := Eval(valueNode, env)
+		if isError(value) {
+			return value
+		}
+
+		hashed := hashKey.HashKey()
+		pairs[hashed] = object.HashPair{Key: key, Value: value}
+	}
+
+	return &object.Hash{Pairs: pairs}
+}
+
+func evalHashIndexExpression(hash, index object.Object) object.Object {
+	hashObject := hash.(*object.Hash)
+
+	key, ok := index.(object.Hashable)
+	if !ok {
+		return newError("unusable as hash key: %s", index.Type())
+	}
+
+	pair, ok := hashObject.Pairs[key.HashKey()]
+	if !ok {
+		return NULL
+	}
+
+	return pair.Value
 }
